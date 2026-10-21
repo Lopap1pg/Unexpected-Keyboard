@@ -53,7 +53,16 @@ jobs:
       run: bash scripts/build_mozc.sh
 
     - name: Run tests
-      run: gradle test
+      run: |
+        set -o pipefail
+        gradle test --stacktrace 2>&1 | tee gradle-test.log
+
+    - name: Upload test log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: gradle-test-log
+        path: gradle-test.log
 
     - name: Build debug APK
       run: |
