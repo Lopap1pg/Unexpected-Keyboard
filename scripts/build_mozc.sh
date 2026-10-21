@@ -22,24 +22,24 @@ if [[ ! -d "${MOZC_SRC}" ]]; then
   exit 1
 fi
 
-# Mozc's Bzlmod configuration expects an NDK at this fixed path. GitHub's
-# Android runner already contains several NDKs, so reuse the newest installed
-# one instead of downloading another copy.
-if [[ -z "${ANDROID_NDK_HOME:-}" && -n "${ANDROID_SDK_ROOT:-}" && -d "${ANDROID_SDK_ROOT}/ndk" ]]; then
-  newest_ndk="$(find "${ANDROID_SDK_ROOT}/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1 || true)"
-  if [[ -n "${newest_ndk}" ]]; then
-    export ANDROID_NDK_HOME="${newest_ndk}"
-  fi
+# Current Mozc explicitly configures rules_android_ndk with a directory named
+# android-ndk-r29. Prefer an installed r29 over the runner's default NDK.
+NDK=""
+if [[ -n "${ANDROID_SDK_ROOT:-}" && -d "${ANDROID_SDK_ROOT}/ndk" ]]; then
+  NDK="$(find "${ANDROID_SDK_ROOT}/ndk" -mindepth 1 -maxdepth 1 -type d -name '29.*' | sort -V | tail -n 1 || true)"
 fi
-
-if [[ -z "${ANDROID_NDK_HOME:-}" ]]; then
-  echo "ANDROID_NDK_HOME is not set and no installed Android NDK was found" >&2
+if [[ -z "${NDK}" && -n "${ANDROID_NDK_HOME:-}" && -d "${ANDROID_NDK_HOME}" ]]; then
+  NDK="${ANDROID_NDK_HOME}"
+fi
+if [[ -z "${NDK}" ]]; then
+  echo "Android NDK r29 was not found" >&2
   exit 1
 fi
 
+echo "Using Android NDK: ${NDK}"
 mkdir -p "${MOZC_SRC}/third_party/ndk"
 rm -rf "${MOZC_SRC}/third_party/ndk/android-ndk-r29"
-ln -s "${ANDROID_NDK_HOME}" "${MOZC_SRC}/third_party/ndk/android-ndk-r29"
+ln -s "${NDK}" "${MOZC_SRC}/third_party/ndk/android-ndk-r29"
 
 BAZEL="${BAZEL:-$(command -v bazelisk || command -v bazel || true)}"
 if [[ -z "${BAZEL}" ]]; then
