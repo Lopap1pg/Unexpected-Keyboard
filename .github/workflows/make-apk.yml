@@ -39,6 +39,12 @@ jobs:
       with:
         gradle-version: 8.14.4
 
+    - name: Install Bazelisk
+      run: npm install -g @bazel/bazelisk
+
+    - name: Build Mozc engine
+      run: bash scripts/build_mozc.sh
+
     - name: Run tests
       run: gradle test
 
