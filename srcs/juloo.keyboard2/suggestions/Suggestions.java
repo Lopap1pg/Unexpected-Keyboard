@@ -56,6 +56,17 @@ public final class Suggestions
     emoji_suggestion = null;
   }
 
+  /** Show candidates supplied by a composing IME such as Mozc. */
+  public void composition_candidates(List<String> candidates)
+  {
+    clear();
+    int n = Math.min(candidates.size(), MAX_COUNT);
+    for (int i = 0; i < n; i++)
+      suggestions[i] = candidates.get(i);
+    count = n;
+    _callback.set_suggestions(this);
+  }
+
   int query_suggestions(String word)
   {
     Cdict dict = _config.current_dictionary;
@@ -92,7 +103,6 @@ public final class Suggestions
   String query_emoji(String word)
   {
     Cdict dict = _config.emoji_dictionary;
-    // Disable emoji suggestion for short words
     if (dict == null || word.length() < 3)
       return null;
     Cdict.Result r = dict.find(word);
