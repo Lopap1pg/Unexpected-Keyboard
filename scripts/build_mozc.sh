@@ -49,26 +49,33 @@ fi
 
 cd "${MOZC_SRC}"
 QUIET=(--curses=no --show_progress_rate_limit=30)
+ANDROID_FLAGS=(--config oss_android --config release_build)
+HOST_FLAGS=(--config oss_linux --config release_build)
 
-# Build the stock upstream Android JNI library for all supported ABIs.
-"${BAZEL}" build //android/jni:native_libs \
-  --config oss_android --config release_build "${QUIET[@]}"
+# First device-validation APK only needs arm64. This keeps the same upstream
+# Mozc binary, while avoiding three extra native compilations before the Java
+# integration has been validated on-device.
+"${BAZEL}" build //android/jni:mozc.arm64 \
+  "${ANDROID_FLAGS[@]}" "${QUIET[@]}"
+
+# Query the transitioned target for the actual shared-library output path.
+arm64_so="$("${BAZEL}" cquery //android/jni:mozc.arm64 \
+  "${ANDROID_FLAGS[@]}" --output=files 2>/dev/null \
+  | grep -E '(^|/)mozc$|(^|/)libmozc\.so$' | head -n 1 || true)"
+if [[ -z "${arm64_so}" || ! -f "${arm64_so}" ]]; then
+  echo "Could not locate the arm64 Mozc shared library" >&2
+  "${BAZEL}" cquery //android/jni:mozc.arm64 \
+    "${ANDROID_FLAGS[@]}" --output=files || true
+  exit 1
+fi
 
 # mozc.data is architecture independent and must be built with the host config.
 "${BAZEL}" build //data_manager/oss:mozc.data \
-  --config oss_linux --config release_build "${QUIET[@]}"
+  "${HOST_FLAGS[@]}" "${QUIET[@]}"
 
 rm -rf "${OUT}"
-mkdir -p "${OUT}/jniLibs" "${OUT}/assets" "${OUT}/proto/protocol"
-
-unzip -q -o bazel-bin/android/jni/native_libs.zip -d "${OUT}/jni.tmp"
-if [[ -d "${OUT}/jni.tmp/libs" ]]; then
-  cp -a "${OUT}/jni.tmp/libs/." "${OUT}/jniLibs/"
-else
-  cp -a "${OUT}/jni.tmp/." "${OUT}/jniLibs/"
-fi
-rm -rf "${OUT}/jni.tmp"
-
+mkdir -p "${OUT}/jniLibs/arm64-v8a" "${OUT}/assets" "${OUT}/proto/protocol"
+install -m 755 "${arm64_so}" "${OUT}/jniLibs/arm64-v8a/libmozc.so"
 install -m 644 bazel-bin/data_manager/oss/mozc.data "${OUT}/assets/mozc.data"
 install -m 644 protocol/*.proto "${OUT}/proto/protocol/"
 
