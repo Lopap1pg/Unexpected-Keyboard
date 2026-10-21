@@ -2,9 +2,10 @@ package juloo.keyboard2.ime;
 
 import android.content.Context;
 import android.view.KeyEvent;
+import android.view.inputmethod.ExtractedText;
+import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import java.util.ArrayList;
-import java.util.List;
 import juloo.keyboard2.suggestions.Suggestions;
 import org.mozc.android.inputmethod.japanese.protobuf.ProtoCandidateWindow;
 import org.mozc.android.inputmethod.japanese.protobuf.ProtoCommands;
@@ -231,6 +232,22 @@ public final class JapaneseIme
   {
     if (out == null || conn == null)
       return;
+
+    final boolean hadPreedit = _had_preedit;
+    final boolean hasResult = out.hasResult()
+        && out.getResult().getValue().length() != 0;
+    String preedit = null;
+    int preeditCursor = 0;
+    if (out.hasPreedit())
+    {
+      StringBuilder text = new StringBuilder();
+      for (ProtoCommands.Preedit.Segment segment : out.getPreedit().getSegmentList())
+        text.append(segment.getValue());
+      preedit = text.toString();
+      preeditCursor = Math.max(0,
+          Math.min(out.getPreedit().getCursor(), preedit.length()));
+    }
+
     conn.beginBatchEdit();
     try
     {
@@ -242,31 +259,29 @@ public final class JapaneseIme
           conn.deleteSurroundingText(left, right);
       }
 
-      if (out.hasResult() && out.getResult().getValue().length() != 0)
+      if (hasResult)
         conn.commitText(out.getResult().getValue(), 1);
 
-      if (out.hasPreedit())
+      if (preedit != null)
       {
-        StringBuilder text = new StringBuilder();
-        for (ProtoCommands.Preedit.Segment segment : out.getPreedit().getSegmentList())
-          text.append(segment.getValue());
-        String preedit = text.toString();
         if (preedit.length() == 0)
         {
-          if (_had_preedit)
+          // If Backspace removed the last composing character, finishing the
+          // span would confirm the stale character. An empty commit replaces
+          // that span with nothing. A real result already replaced it above.
+          if (hadPreedit && !hasResult)
+            conn.commitText("", 1);
+          else
             conn.finishComposingText();
           _had_preedit = false;
         }
         else
         {
-          // Android's cursor argument is relative to the composing text. Mozc's
-          // normal QWERTY path keeps it at the tail; segment/candidate focus is
-          // still represented by Mozc and the candidate strip.
           conn.setComposingText(preedit, 1);
           _had_preedit = true;
         }
       }
-      else if (_had_preedit && out.hasResult())
+      else if (hadPreedit && hasResult)
       {
         conn.finishComposingText();
         _had_preedit = false;
@@ -276,10 +291,32 @@ public final class JapaneseIme
     {
       conn.endBatchEdit();
     }
-    update_candidates(out);
+
+    // setComposingText can place the Android caret only before/after the span.
+    // When Mozc moved inside the composition with an arrow key, reposition it
+    // explicitly after the batch edit so the visible caret follows Mozc.
+    if (preedit != null && preedit.length() != 0
+        && preeditCursor < preedit.length())
+      place_composing_cursor(conn, preedit.length(), preeditCursor);
+
+    update_candidates(out, _had_preedit);
   }
 
-  private void update_candidates(ProtoCommands.Output out)
+  private void place_composing_cursor(
+      InputConnection conn, int preeditLength, int cursor)
+  {
+    ExtractedText extracted = conn.getExtractedText(new ExtractedTextRequest(), 0);
+    if (extracted == null)
+      return;
+    int end = extracted.startOffset + extracted.selectionStart;
+    int start = end - preeditLength;
+    if (start < 0)
+      return;
+    int target = start + cursor;
+    conn.setSelection(target, target);
+  }
+
+  private void update_candidates(ProtoCommands.Output out, boolean active)
   {
     _candidates.clear();
     ArrayList<String> texts = new ArrayList<String>();
@@ -306,12 +343,12 @@ public final class JapaneseIme
         texts.add(candidate.getValue());
       }
     }
-    _suggestions.composition_candidates(texts);
+    _suggestions.composition_candidates(texts, active);
   }
 
   private void clear_candidates()
   {
     _candidates.clear();
-    _suggestions.composition_candidates(new ArrayList<String>());
+    _suggestions.composition_candidates(new ArrayList<String>(), false);
   }
 }
