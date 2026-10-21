@@ -154,7 +154,7 @@ val genMethodXml by tasks.registering(Exec::class) {
   inputs.file(projectDir.resolve("gen_method_xml.py"))
   inputs.file(projectDir.resolve("res/values/dictionaries.xml"))
   outputs.file(out)
-  doFirst { println("\nGenerating $out") }
+  doFirst { println("\nGenerating res/xml/method.xml") }
   doFirst { standardOutput = FileOutputStream(out) }
   workingDir = projectDir
   commandLine("python", "gen_method_xml.py")
