@@ -18,13 +18,16 @@ public final class JapaneseKeyEventHandler implements Config.IKeyEventHandler
   private final KeyEventHandler _base;
   private final KeyEventHandler.IReceiver _receiver;
   private final JapaneseIme _japanese;
+  private final Runnable _mode_changed;
 
   public JapaneseKeyEventHandler(Context context, KeyEventHandler base,
-      Suggestions suggestions, KeyEventHandler.IReceiver receiver)
+      Suggestions suggestions, KeyEventHandler.IReceiver receiver,
+      Runnable modeChanged)
   {
     _base = base;
     _receiver = receiver;
     _japanese = new JapaneseIme(context, suggestions);
+    _mode_changed = modeChanged;
   }
 
   public void started()
@@ -61,7 +64,8 @@ public final class JapaneseKeyEventHandler implements Config.IKeyEventHandler
 
     if (is_toggle(key))
     {
-      _japanese.toggle(conn);
+      if (_japanese.toggle(conn) && _mode_changed != null)
+        _mode_changed.run();
       return;
     }
 
