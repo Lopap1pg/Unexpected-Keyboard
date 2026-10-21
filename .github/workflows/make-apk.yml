@@ -7,6 +7,10 @@ on:
       - master
   pull_request:
 
+concurrency:
+  group: make-apk-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   Build-Apk:
     runs-on: ubuntu-latest
