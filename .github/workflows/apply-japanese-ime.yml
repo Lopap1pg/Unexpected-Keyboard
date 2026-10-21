@@ -1,0 +1,33 @@
+name: Apply Japanese IME integration
+
+on:
+  push:
+    branches:
+      - feature/japanese-ime
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feature/japanese-ime
+
+      - name: Apply source integration
+        run: python3 tools/apply_japanese_ime.py
+
+      - name: Commit generated source integration
+        run: |
+          if git diff --quiet; then
+            echo "No source changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add srcs/juloo.keyboard2/Keyboard2.java build.gradle.kts .github/workflows/make-apk.yml
+          git commit -m "Wire Mozc Japanese IME into keyboard"
+          git push origin HEAD:feature/japanese-ime
