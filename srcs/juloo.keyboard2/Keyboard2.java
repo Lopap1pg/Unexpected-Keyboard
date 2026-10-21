@@ -42,6 +42,7 @@ public class Keyboard2 extends InputMethodService
   private CandidatesView _candidates_view;
   private Suggestions _suggestions;
   private KeyEventHandler _keyeventhandler;
+  private JapaneseKeyEventHandler _japanese_keyeventhandler;
   /** If not 'null', the layout to use instead of [_config.current_layout]. */
   private KeyboardData _currentSpecialLayout;
   /** Layout associated with the currently selected locale. Not 'null'. */
@@ -140,8 +141,18 @@ public class Keyboard2 extends InputMethodService
     Receiver recvr = this.new Receiver();
     _suggestions = new Suggestions(recvr, _config);
     _keyeventhandler = new KeyEventHandler(_config, recvr, _suggestions);
+    _japanese_keyeventhandler = new JapaneseKeyEventHandler(
+        this, _keyeventhandler, _suggestions, recvr,
+        new Runnable()
+        {
+          @Override
+          public void run()
+          {
+            refresh_candidates_view();
+          }
+        });
     KeyValue.Stateful._handler = recvr;
-    _config.handler = _keyeventhandler;
+    _config.handler = _japanese_keyeventhandler;
     prefs.registerOnSharedPreferenceChangeListener(this);
     Logs.set_debug_logs(getResources().getBoolean(R.bool.debug_logs));
     refreshSubtypeImm();
@@ -209,7 +220,9 @@ public class Keyboard2 extends InputMethodService
   private void refresh_candidates_view()
   {
     boolean should_show =
-      _config.suggestions_enabled
+      (_config.suggestions_enabled
+       || (_japanese_keyeventhandler != null
+           && _japanese_keyeventhandler.is_japanese_enabled()))
       && _config.editor_config.should_show_candidates_view
       && !_config.split_layout;
     if (should_show)
@@ -267,6 +280,7 @@ public class Keyboard2 extends InputMethodService
     _currentSpecialLayout = refresh_special_layout();
     _keyboard_layout_view.setKeyboard(current_layout());
     _keyeventhandler.started();
+    _japanese_keyeventhandler.started();
     setInputView(_keyboard_container_view);
     Logs.debug_startup_input_view(info, _config);
   }

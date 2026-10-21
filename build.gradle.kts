@@ -1,15 +1,31 @@
+import com.google.protobuf.gradle.id
 import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import java.io.FileOutputStream
 
 plugins {
   id("com.android.application") version "8.13.2"
+  id("com.google.protobuf") version "0.9.4"
 }
 
 dependencies {
   // Following versions of androidx.window require sdk version 23
   implementation("androidx.window:window-java:1.4.0")
   implementation("androidx.core:core:1.16.0") // Version 1.17.0 available with sdk 36
+  implementation("com.google.protobuf:protobuf-javalite:4.28.3")
   testImplementation("junit:junit:4.13.2")
+}
+
+protobuf {
+  protoc {
+    artifact = "com.google.protobuf:protoc:4.28.3"
+  }
+  generateProtoTasks {
+    all().configureEach {
+      builtins {
+        id("java") { option("lite") }
+      }
+    }
+  }
 }
 
 android {
@@ -27,9 +43,11 @@ android {
   sourceSets {
     named("main") {
       manifest.srcFile("AndroidManifest.xml")
-      java.srcDirs("srcs/juloo.keyboard2", "vendor/cdict/java/juloo.cdict")
+      java.srcDirs("srcs/juloo.keyboard2", "srcs/mozc/java", "vendor/cdict/java/juloo.cdict")
       res.srcDirs("res", "build/generated-resources")
-      assets.srcDirs("assets")
+      assets.srcDirs("assets", "build/mozc-generated/assets")
+      jniLibs.srcDirs("build/mozc-generated/jniLibs")
+      proto.srcDir("build/mozc-generated/proto")
     }
 
     named("test") {
