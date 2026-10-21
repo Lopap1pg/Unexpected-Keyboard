@@ -1,4 +1,5 @@
 import com.google.protobuf.gradle.id
+import com.google.protobuf.gradle.proto
 import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import java.io.FileOutputStream
 
@@ -47,7 +48,7 @@ android {
       res.srcDirs("res", "build/generated-resources")
       assets.srcDirs("assets", "build/mozc-generated/assets")
       jniLibs.srcDirs("build/mozc-generated/jniLibs")
-      proto.srcDir("build/mozc-generated/proto")
+      proto { srcDir("build/mozc-generated/proto") }
     }
 
     named("test") {
@@ -153,7 +154,7 @@ val genMethodXml by tasks.registering(Exec::class) {
   inputs.file(projectDir.resolve("gen_method_xml.py"))
   inputs.file(projectDir.resolve("res/values/dictionaries.xml"))
   outputs.file(out)
-  doFirst { println("\nGenerating res/xml/method.xml") }
+  doFirst { println("\nGenerating $out") }
   doFirst { standardOutput = FileOutputStream(out) }
   workingDir = projectDir
   commandLine("python", "gen_method_xml.py")
