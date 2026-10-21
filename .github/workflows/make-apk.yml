@@ -7,6 +7,10 @@ on:
       - master
   pull_request:
 
+concurrency:
+  group: make-apk-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   Build-Apk:
     runs-on: ubuntu-latest
@@ -39,8 +43,26 @@ jobs:
       with:
         gradle-version: 8.14.4
 
+    - name: Setup Bazelisk
+      run: |
+        mkdir -p "$RUNNER_TEMP/bazelisk"
+        npm install --prefix "$RUNNER_TEMP/bazelisk" @bazel/bazelisk
+        echo "$RUNNER_TEMP/bazelisk/node_modules/.bin" >> "$GITHUB_PATH"
+
+    - name: Build Mozc engine
+      run: bash scripts/build_mozc.sh
+
     - name: Run tests
-      run: gradle test
+      run: |
+        set -o pipefail
+        gradle test --stacktrace 2>&1 | tee gradle-test.log
+
+    - name: Upload test log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: gradle-test-log
+        path: gradle-test.log
 
     - name: Build debug APK
       run: |

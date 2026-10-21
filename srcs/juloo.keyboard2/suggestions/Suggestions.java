@@ -1,9 +1,7 @@
 package juloo.keyboard2.suggestions;
 
-import java.util.Arrays;
 import java.util.List;
 import juloo.cdict.Cdict;
-import juloo.keyboard2.dict.Dictionaries;
 import juloo.keyboard2.Config;
 import juloo.keyboard2.ComposeKey;
 import juloo.keyboard2.ComposeKeyData;
@@ -15,6 +13,9 @@ public final class Suggestions
   Callback _callback;
   Config _config;
   boolean _enabled;
+  /** While true, editor selection callbacks must not replace IME candidates
+      with dictionary suggestions for the text under the composing span. */
+  boolean _composition_active = false;
 
   /** Current suggestions. The best suggestion is at index [0]. */
   public String[] suggestions = new String[MAX_COUNT];
@@ -34,12 +35,13 @@ public final class Suggestions
   public void started()
   {
     _enabled = _config.editor_config.should_show_candidates_view;
+    _composition_active = false;
     clear();
   }
 
   public void currently_typed_word(String word)
   {
-    if (!_enabled)
+    if (!_enabled || _composition_active)
       return;
     if (word.length() < 2 || _config.current_dictionary == null)
       clear();
@@ -54,6 +56,18 @@ public final class Suggestions
     for (int i = 0; i < MAX_COUNT; i++)
       suggestions[i] = null;
     emoji_suggestion = null;
+  }
+
+  /** Show candidates supplied by a composing IME such as Mozc. */
+  public void composition_candidates(List<String> candidates, boolean active)
+  {
+    _composition_active = active;
+    clear();
+    int n = Math.min(candidates.size(), MAX_COUNT);
+    for (int i = 0; i < n; i++)
+      suggestions[i] = candidates.get(i);
+    count = n;
+    _callback.set_suggestions(this);
   }
 
   int query_suggestions(String word)
