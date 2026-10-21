@@ -22,12 +22,16 @@ jobs:
 
       - name: Commit generated source integration
         run: |
+          # Workflow files require a different GitHub permission. The source
+          # patcher edits make-apk.yml locally for validation, but that workflow
+          # is committed separately through the GitHub API.
+          git checkout -- .github/workflows/make-apk.yml
           if git diff --quiet; then
             echo "No source changes needed"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add srcs/juloo.keyboard2/Keyboard2.java build.gradle.kts .github/workflows/make-apk.yml
+          git add srcs/juloo.keyboard2/Keyboard2.java build.gradle.kts
           git commit -m "Wire Mozc Japanese IME into keyboard"
           git push origin HEAD:feature/japanese-ime
